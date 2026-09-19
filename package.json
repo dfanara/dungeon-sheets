@@ -1,0 +1,47 @@
+{
+  "name": "dungeon-sheets",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --port 3000",
+    "build": "vite build && tsc --noEmit",
+    "preview": "vite preview",
+    "generate-routes": "tsr generate",
+    "test": "bun test",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "doctor": "npx react-doctor@latest"
+  },
+  "dependencies": {
+    "@tanstack/react-db": "latest",
+    "@tanstack/react-devtools": "latest",
+    "@tanstack/react-query": "latest",
+    "@tanstack/react-query-devtools": "latest",
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-router-devtools": "latest",
+    "@tanstack/react-router-ssr-query": "latest",
+    "@tanstack/react-start": "latest",
+    "@tanstack/react-store": "latest",
+    "@tanstack/store": "latest",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "1.83.0",
+    "@tanstack/devtools-event-client": "latest",
+    "@tanstack/devtools-vite": "latest",
+    "@tanstack/router-cli": "latest",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "oxlint": "^1.83.0",
+    "react-doctor": "^0.9.14",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.0"
+  }
+}
