@@ -4,8 +4,7 @@ import { useStore } from '@tanstack/react-store'
 import { makeElement, pageSizes, round, roundPosition, type SheetElement } from './model'
 import { beginGesture, editorStore, endGesture, setEditor, updateDocument } from './store'
 import { selectElement } from './arrange'
-import { Selection, SheetElementView } from './sheet-element'
-import { printStyle } from './print-style'
+import { Selection, SheetDefs, SheetElementView } from './sheet-element'
 import { useCanvasNavigation } from './navigation'
 
 interface DragState {
@@ -224,14 +223,11 @@ export function EditorCanvas() {
         onPointerCancel={pointerCancel}
         onLostPointerCapture={pointerCancel}
       >
+        <SheetDefs />
         <defs>
-          <style>{printStyle}</style>
           <pattern id="layout-grid" x={document.margins.l} y={document.margins.t} width={document.grid} height={document.grid} patternUnits="userSpaceOnUse">
             <path d={`M ${document.grid} 0 L 0 0 0 ${document.grid}`} fill="none" stroke="#c8d4de" strokeWidth=".18" />
           </pattern>
-          <pattern id="fill-lines" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M 0 5 H 5" stroke="#c7c7c7" strokeWidth=".12" /></pattern>
-          <pattern id="fill-squares" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M 5 0 H 0 V 5" fill="none" stroke="#c7c7c7" strokeWidth=".12" /></pattern>
-          <pattern id="fill-dots" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx=".5" cy=".5" r=".22" fill="#b4b4b4" /></pattern>
         </defs>
         <rect width={page.width} height={page.height} fill="white" />
         {document.showGrid && <rect data-chrome="grid" x={document.margins.l} y={document.margins.t} width={contentWidth} height={contentHeight} fill="url(#layout-grid)" />}

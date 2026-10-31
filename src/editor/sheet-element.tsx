@@ -1,7 +1,20 @@
 import type { BoxElement, FieldElement, SheetElement, TableElement, TrackerElement } from './model'
 import { chamferPath } from './model'
-import { contentBounds, frameBounds, labelLength, splitCells } from './spacing'
+import { capsEm, contentBounds, fitLength, frameBounds, labelLength, panelHeader, sansEm, splitCells, tableLayout } from './spacing'
 import { FantasyField } from './fantasy-element'
+import { printStyle } from './print-style'
+
+// Shared by the editor canvas and the render harness so what is previewed matches what prints.
+export function SheetDefs() {
+  return (
+    <defs>
+      <style>{printStyle}</style>
+      <pattern id="fill-lines" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M 0 5 H 5" stroke="#c7c7c7" strokeWidth=".12" /></pattern>
+      <pattern id="fill-squares" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M 5 0 H 0 V 5" fill="none" stroke="#c7c7c7" strokeWidth=".12" /></pattern>
+      <pattern id="fill-dots" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx=".5" cy=".5" r=".22" fill="#b4b4b4" /></pattern>
+    </defs>
+  )
+}
 
 function FieldView({ element }: Readonly<{ element: FieldElement }>) {
   const variant = element.variant ?? 'line'
@@ -72,7 +85,111 @@ function TrackerView({ element }: Readonly<{ element: TrackerElement }>) {
   )
 }
 
+
+const bandFill = '#e6e6e3'
+
+const subBandFill = '#f2f2f0'
+
+function PanelHeader({ element, height, title, hint }: Readonly<{ element: { x: number; y: number; w: number }; height: number; title: string; hint?: string }>) {
+  const hintWidth = hint ? Math.min(element.w * .5, hint.length * 2 * sansEm + .4) : 0
+  const titleWidth = Math.max(1, element.w - 3.2 - (hint ? hintWidth + 2 : 0))
+
+  return (
+    <>
+      <text className="panel-title" x={element.x + 1.6} y={element.y + height * .7} textLength={fitLength(title, 2.3, capsEm, titleWidth)} lengthAdjust="spacingAndGlyphs">{title}</text>
+      {hint && <text className="panel-hint" x={element.x + element.w - 1.6} y={element.y + height * .7} textAnchor="end" textLength={fitLength(hint, 2, sansEm, hintWidth)} lengthAdjust="spacingAndGlyphs">{hint}</text>}
+    </>
+  )
+}
+
+function PanelBox({ element }: Readonly<{ element: BoxElement }>) {
+  const pitch = element.gridSize
+  const lines = element.fill === 'lines'
+  const body = lines ? Math.max(0, Math.floor((element.h - panelHeader) / pitch + .001)) * pitch : Math.max(0, element.h - panelHeader)
+  const header = element.h - body
+  const id = `panel-lines-${element.id}`
+
+  return (
+    <g data-element-id={element.id}>
+      {lines && <defs><pattern id={id} x={element.x} y={element.y + header} width={pitch} height={pitch} patternUnits="userSpaceOnUse"><path d={`M 0 ${pitch} H ${pitch}`} stroke="#bdbdbd" strokeWidth=".14" /></pattern></defs>}
+      <path d={chamferPath(element.x, element.y, element.w, element.h, element.cut)} fill="white" />
+      {lines && <rect x={element.x} y={element.y + header} width={element.w} height={body} fill={`url(#${id})`} />}
+      <rect x={element.x} y={element.y} width={element.w} height={header} fill={bandFill} />
+      <path d={chamferPath(element.x, element.y, element.w, element.h, element.cut)} fill="none" stroke="#111" strokeWidth=".3" />
+      <line x1={element.x} y1={element.y + header} x2={element.x + element.w} y2={element.y + header} stroke="#111" strokeWidth=".2" />
+      <PanelHeader element={element} height={header} title={element.title} hint={element.hint} />
+    </g>
+  )
+}
+
+function columnLayout(element: TableElement, content: { x: number; w: number }) {
+  const count = Math.max(1, element.headers.length)
+  const weights = Array.from({ length: count }, (_, index) => Math.max(.1, element.cols?.[index]?.w ?? 1))
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  let cursor = content.x
+
+  return weights.map((weight, index) => {
+    const w = content.w * weight / total
+    const cell = { x: cursor, w, kind: element.cols?.[index]?.kind ?? 'text', letters: element.cols?.[index]?.letters ?? '' }
+
+    cursor += w
+
+    return cell
+  })
+}
+
+function PanelTable({ element }: Readonly<{ element: TableElement }>) {
+  const content = contentBounds(element)
+  const rows = Math.max(1, Math.round(element.rows))
+  const lines = Math.max(1, Math.round(element.lines ?? 1))
+  const { titleBand, headBand, pitch, header } = tableLayout(element, content.h)
+  const bodyTop = content.y + header
+  const rowHeight = lines * pitch
+  const columns = columnLayout(element, content)
+  const markSize = Math.min(2.8, pitch * .55)
+
+  return (
+    <g data-element-id={element.id}>
+      <path d={chamferPath(element.x, element.y, element.w, element.h, 1)} fill="white" />
+      {titleBand > 0 && <rect x={content.x} y={content.y} width={content.w} height={titleBand} fill={bandFill} />}
+      {headBand > 0 && <rect x={content.x} y={content.y + titleBand} width={content.w} height={headBand} fill={titleBand > 0 ? subBandFill : bandFill} />}
+      {columns.slice(1).map((column) => <line key={column.x} x1={column.x} y1={content.y + titleBand} x2={column.x} y2={content.y + content.h} stroke="#8a8a8a" strokeWidth=".15" />)}
+      {Array.from({ length: rows - 1 }, (_, row) => <line key={`r${row}`} x1={content.x} y1={bodyTop + (row + 1) * rowHeight} x2={content.x + content.w} y2={bodyTop + (row + 1) * rowHeight} stroke="#555" strokeWidth=".18" />)}
+      {lines > 1 && Array.from({ length: rows }, (_, row) => Array.from({ length: lines - 1 }, (_, line) => {
+        const y = bodyTop + row * rowHeight + (line + 1) * pitch
+
+        return columns.filter((column) => column.kind === 'text').map((column) => <line key={`s${row}-${line}-${column.x}`} x1={column.x + .6} y1={y} x2={column.x + column.w - .6} y2={y} stroke="#bdbdbd" strokeWidth=".13" />)
+      }))}
+      {titleBand > 0 && <PanelHeader element={content} height={titleBand} title={element.title} hint={element.hint} />}
+      {headBand > 0 && columns.map((column, index) => <text key={column.x} className="table-header" x={column.x + column.w / 2} y={content.y + titleBand + headBand * .72} textAnchor="middle" textLength={fitLength(element.headers[index] ?? '', 2.15, capsEm, Math.max(.5, column.w - 1))} lengthAdjust="spacingAndGlyphs">{element.headers[index]}</text>)}
+      {Array.from({ length: rows }, (_, row) => columns.map((column) => {
+        const top = bodyTop + row * rowHeight
+        const cx = column.x + column.w / 2
+        const cy = top + pitch / 2
+
+        if (column.kind === 'number') return <text key={`n${row}-${column.x}`} className="cell-mark" x={cx} y={top + pitch * .72} textAnchor="middle">{(element.start ?? 1) + row}</text>
+
+        if (column.kind === 'check') return <rect key={`c${row}-${column.x}`} x={cx - markSize / 2} y={cy - markSize / 2} width={markSize} height={markSize} fill="white" stroke="#111" strokeWidth=".3" />
+
+        if (column.kind === 'letters') {
+          const letters = [...column.letters.replaceAll(' ', '')]
+          const margin = Math.min(1.2, column.w / 8)
+          const step = (column.w - margin * 2) / letters.length
+
+          return letters.map((letter, index) => <text key={`l${row}-${column.x}-${letter}`} className="cell-mark" x={column.x + margin + (index + .5) * step} y={top + pitch * .72} textAnchor="middle">{letter}</text>)
+        }
+
+        return null
+      }))}
+      <path d={chamferPath(element.x, element.y, element.w, element.h, 1)} fill="none" stroke="#111" strokeWidth=".3" />
+      {header > 0 && <line x1={content.x} y1={bodyTop} x2={content.x + content.w} y2={bodyTop} stroke="#111" strokeWidth=".25" />}
+    </g>
+  )
+}
+
 function TableView({ element }: Readonly<{ element: TableElement }>) {
+  if (element.treatment === 'panel') return <PanelTable element={element} />
+
   const content = contentBounds(element)
   const rowCount = Math.max(1, Math.round(element.rows))
   const headerHeight = Math.min(4.5, content.h / 2)
@@ -101,6 +218,8 @@ function TableView({ element }: Readonly<{ element: TableElement }>) {
 }
 
 function BoxView({ element }: Readonly<{ element: BoxElement }>) {
+    if (element.treatment === 'panel') return <PanelBox element={element} />
+
     const inset = Math.min(.7, element.w / 8, element.h / 8)
     const fillId = `fill-lines-${element.id}`
     const content = contentBounds(element)
@@ -117,7 +236,7 @@ function BoxView({ element }: Readonly<{ element: BoxElement }>) {
 
     return (
       <g data-element-id={element.id}>
-        {element.fill === 'lines' && <defs><pattern id={fillId} width={element.gridSize} height={element.gridSize} patternUnits="userSpaceOnUse"><path d={`M 0 ${element.gridSize} H ${element.gridSize}`} stroke="#c7c7c7" strokeWidth=".12" /></pattern></defs>}
+        {element.fill === 'lines' && <defs><pattern id={fillId} x={content.x} y={content.y} width={element.gridSize} height={element.gridSize} patternUnits="userSpaceOnUse"><path d={`M 0 ${element.gridSize} H ${element.gridSize}`} stroke="#c7c7c7" strokeWidth=".12" /></pattern></defs>}
         <defs><clipPath id={`content-${element.id}`}><path d={innerPath} /></clipPath></defs>
         <path d={chamferPath(element.x, element.y, element.w, element.h, element.cut)} fill="white" stroke="#111" strokeWidth=".35" />
         <rect x={content.x} y={content.y} width={content.w} height={Math.max(0, content.h - (element.caption === 'bottom' ? 3 : 0))} fill={fill} clipPath={`url(#content-${element.id})`} />

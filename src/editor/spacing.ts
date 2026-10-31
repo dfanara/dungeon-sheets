@@ -35,3 +35,31 @@ export function splitCells(content: { x: number; w: number }, count: number) {
     w: Math.max(0, cellWidth - (index < count - 1 ? labelGap : 0)),
   }))
 }
+
+// Pitch of ruled writing lines, matching the default A5 layout grid so lines line up with panel edges.
+export const rulePitch = 16 / 3
+
+export const panelHeader = 4.33
+
+export const columnHeader = 5.33
+
+// Average advance per em for the sheet's faces: bold serif capitals run wide, small sans text runs narrow.
+export const capsEm = .8
+
+export const sansEm = .5
+
+// Returns a textLength only when the text genuinely cannot fit, so short labels are never stretched.
+export function fitLength(text: string, size: number, em: number, width: number) {
+  return text.length * size * em > width ? Math.max(.1, width) : undefined
+}
+
+// Bands are fixed so resizing a ruled table stretches its rows, never its headings; the grid-aligned templates land on rulePitch exactly.
+export function tableLayout(element: { title: string; headers: string[]; rows: number; lines?: number }, contentHeight: number) {
+  const count = Math.max(1, Math.round(element.rows)) * Math.max(1, Math.round(element.lines ?? 1))
+  const hasHeads = element.headers.some((head) => head.trim() !== '')
+  const titleBand = element.title ? panelHeader : 0
+  const headBand = hasHeads ? (element.title ? columnHeader : panelHeader) : 0
+  const pitch = Math.max(0, (contentHeight - titleBand - headBand) / count)
+
+  return { count, titleBand, headBand, pitch, header: titleBand + headBand }
+}

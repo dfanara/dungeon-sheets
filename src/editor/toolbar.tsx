@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useStore } from '@tanstack/react-store'
 
 import { editorStore, setDocument, setEditor, updateDocument } from './store'
 import { placePart, sheetParts, type SheetPart } from './library'
-import { blankDocument, documentTemplates, type Tool } from './model'
+import { blankDocument, type Tool } from './model'
+import { documentTemplates } from './templates'
 import { SheetElementView } from './sheet-element'
 import { printStyle } from './print-style'
 import { characterSummary } from './summary-part'
@@ -117,14 +118,17 @@ export function Toolbar() {
           </div>
           <div className="dock-body">
             <div className="layout-list">
-              {documentTemplates.map((template) => (
-                <button key={template.id} type="button" onClick={() => {
-                  setDocument(template.create(), { id: null, name: template.name })
-                  setDock(null)
-                }}>
-                  {template.name}
-                  <small>{template.description}</small>
-                </button>
+              {documentTemplates.map((template, index) => (
+                <Fragment key={template.id}>
+                  {template.group !== documentTemplates[index - 1]?.group && <h3 className="layout-group">{template.group}</h3>}
+                  <button type="button" onClick={() => {
+                    setDocument(template.create(), { id: null, name: template.name })
+                    setDock(null)
+                  }}>
+                    {template.name}
+                    <small>{template.description}</small>
+                  </button>
+                </Fragment>
               ))}
             </div>
           </div>

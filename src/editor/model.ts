@@ -33,7 +33,8 @@ export interface BoxElement extends Bounds {
   gridSize: number
   cut: number
   caption?: 'top' | 'bottom'
-  treatment?: 'frame' | 'backplate' | 'strip'
+  treatment?: 'frame' | 'backplate' | 'strip' | 'panel'
+  hint?: string
 }
 
 export interface FieldElement extends Bounds {
@@ -64,11 +65,28 @@ export interface TrackerElement extends Bounds {
   marker: 'circle' | 'square'
 }
 
+// 'number' prints 1..n, 'check' prints a tick box and 'letters' prints a short set of letters to circle by hand.
+export type TableColumnKind = 'text' | 'number' | 'check' | 'letters'
+
+export interface TableColumn {
+  w?: number
+  kind?: TableColumnKind
+  letters?: string
+}
+
 export interface TableElement extends Bounds {
   type: 'table'
   title: string
   rows: number
   headers: string[]
+  treatment?: 'frame' | 'panel'
+  hint?: string
+  // Parallel to headers; omitted columns are equal-width text.
+  cols?: TableColumn[]
+  // Ruled writing lines inside each row, so one row can hold a multi-line entry.
+  lines?: number
+  // First number printed by a 'number' column, so split tables can continue a count.
+  start?: number
 }
 
 export type SheetElement = BoxElement | FieldElement | TextElement | RuleElement | TrackerElement | TableElement
@@ -318,16 +336,20 @@ export function characterDocument(): SheetDocument {
   }
 }
 
-export const documentTemplates = [
-  { id: 'character', name: 'Character overview', description: 'Abilities, combat values, skills, attacks, and resources', create: characterDocument },
-  { id: 'npc', name: 'NPC', description: 'Identity, motives, relationships, and notes', create: npcDocument },
-  { id: 'location', name: 'Location / town', description: 'Places, people, history, quests, and connections', create: locationDocument },
-  { id: 'session', name: 'Session log', description: 'Developments, activity, locations, and follow-ups', create: sessionDocument },
-  { id: 'party', name: 'Party tracker', description: 'Five compact character reference rows', create: partyDocument },
-  { id: 'blank', name: 'Blank page', description: 'Start from the grid', create: () => structuredClone(blankDocument) },
-] as const
+export type MarginSide = keyof SheetDocument['margins']
 
-export type TemplateId = typeof documentTemplates[number]['id']
+// Moves one margin. With `shift`, content follows the top or left margin so it keeps its distance from that edge.
+export function setMargin(document: SheetDocument, side: MarginSide, value: number, shift: boolean): SheetDocument {
+  const next = Math.max(0, Math.round(value * 100) / 100)
+  const delta = next - document.margins[side]
+  const follows = shift && (side === 'l' || side === 't')
+
+  return {
+    ...document,
+    margins: { ...document.margins, [side]: next },
+    els: follows ? document.els.map((element) => side === 'l' ? { ...element, x: element.x + delta } : { ...element, y: element.y + delta }) : document.els,
+  }
+}
 
 export function chamferPath(x: number, y: number, w: number, h: number, cut: number) {
   const c = Math.min(cut, w / 2, h / 2)

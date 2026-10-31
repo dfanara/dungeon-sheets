@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useStore } from '@tanstack/react-store'
 
-import { pageSizes, type BoxElement, type FieldElement, type Fill, type SheetElement, type TableElement, type TextElement, type TrackerElement } from './model'
+import { pageSizes, setMargin, type MarginSide, type TableColumn, type TableColumnKind, type BoxElement, type FieldElement, type Fill, type SheetElement, type TableElement, type TextElement, type TrackerElement } from './model'
 import { deleteSelected, editorStore, updateDocument, updateElement } from './store'
 import { alignSelection, duplicateSelection, groupSelection, reorderSelection, selectElement } from './arrange'
 import { defaultInset, defaultPadding } from './spacing'
@@ -18,8 +19,45 @@ function parseFieldVariant(value: string) {
   return 'line'
 }
 
+function parseTreatment(value: string) {
+  if (value === 'backplate' || value === 'strip' || value === 'panel') return value
+
+  return 'frame'
+}
+
+const columnKinds: TableColumnKind[] = ['text', 'number', 'check', 'letters']
+
+// Column types are edited as one line: "number, letters:CLEAD, text, check".
+function formatKinds(element: TableElement) {
+  return element.headers.map((_, index) => {
+    const column = element.cols?.[index]
+
+    return column?.kind === 'letters' ? `letters:${column.letters ?? ''}` : column?.kind ?? 'text'
+  }).join(', ')
+}
+
+function parseKinds(value: string, previous: TableColumn[] | undefined, count: number): TableColumn[] {
+  const parts = value.split(',').map((part) => part.trim())
+
+  return Array.from({ length: count }, (_, index) => {
+    const [kind = 'text', letters = ''] = (parts[index] ?? 'text').split(':')
+    const parsed = columnKinds.find((candidate) => candidate === kind.trim()) ?? 'text'
+
+    return { ...previous?.[index], kind: parsed, letters: parsed === 'letters' ? letters.trim() : undefined }
+  })
+}
+
 function parseMarker(value: string) {
   return value === 'square' ? 'square' : 'circle'
+}
+
+// Edits a free-form value locally and commits on blur or Enter, so values that are invalid mid-typing are not reformatted away.
+function CommitInput({ value, onCommit }: Readonly<{ value: string; onCommit: (value: string) => void }>) {
+  const [draft, setDraft] = useState(value)
+
+  useEffect(() => setDraft(value), [value])
+
+  return <input value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={() => draft !== value && onCommit(draft)} onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()} />
 }
 
 function NumberField({ label, value, unit = 'mm', onChange }: Readonly<{ label: string; value: number; unit?: string; onChange: (value: number) => void }>) {
@@ -36,9 +74,10 @@ function NumberField({ label, value, unit = 'mm', onChange }: Readonly<{ label: 
 function BoxControls({ element }: Readonly<{ element: BoxElement }>) {
   return (
     <>
-      <label className="control-row"><span>Treatment</span><select value={element.treatment ?? 'frame'} onChange={(event) => updateElement(element.id, (current) => current.type === 'box' ? { ...current, treatment: event.target.value === 'backplate' ? 'backplate' : event.target.value === 'strip' ? 'strip' : 'frame' } : current)}><option value="frame">Frame</option><option value="backplate">Backplate</option><option value="strip">Label strip</option></select></label>
+      <label className="control-row"><span>Treatment</span><select value={element.treatment ?? 'frame'} onChange={(event) => updateElement(element.id, (current) => current.type === 'box' ? { ...current, treatment: parseTreatment(event.target.value) } : current)}><option value="frame">Frame</option><option value="backplate">Backplate</option><option value="strip">Label strip</option><option value="panel">Ruled panel</option></select></label>
       <label className="control-row"><span>Caption</span><select value={element.caption ?? 'top'} onChange={(event) => updateElement(element.id, (current) => current.type === 'box' ? { ...current, caption: event.target.value === 'bottom' ? 'bottom' : 'top' } : current)}><option value="top">Top</option><option value="bottom">Bottom</option></select></label>
       <label className="control-row"><span>Title</span><input value={element.title} onChange={(event) => updateElement(element.id, (current) => current.type === 'box' ? { ...current, title: event.target.value } : current)} /></label>
+      {element.treatment === 'panel' && <label className="control-row"><span>Hint</span><input value={element.hint ?? ''} onChange={(event) => updateElement(element.id, (current) => current.type === 'box' ? { ...current, hint: event.target.value } : current)} /></label>}
       <label className="control-row"><span>Fill</span><select value={element.fill} onChange={(event) => updateElement(element.id, (current) => current.type === 'box' ? { ...current, fill: parseFill(event.target.value) } : current)}><option>none</option><option>dots</option><option>squares</option><option>lines</option></select></label>
       {element.fill === 'lines' && <NumberField label="Line spacing" value={element.gridSize} onChange={(gridSize) => updateElement(element.id, (current) => current.type === 'box' ? { ...current, gridSize: Math.max(1, gridSize) } : current)} />}
     </>
@@ -79,6 +118,11 @@ function TableControls({ element }: Readonly<{ element: TableElement }>) {
       <label className="control-row"><span>Title</span><input value={element.title} onChange={(event) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, title: event.target.value } : current)} /></label>
       <label className="control-row"><span>Columns</span><input value={element.headers.join(',')} onChange={(event) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, headers: event.target.value.split(',') } : current)} /></label>
       <NumberField label="Rows" value={element.rows} unit="" onChange={(rows) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, rows: Math.max(1, Math.round(rows)) } : current)} />
+      <NumberField label="Lines per row" value={element.lines ?? 1} unit="" onChange={(lines) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, lines: Math.max(1, Math.round(lines)) } : current)} />
+      <label className="control-row"><span>Style</span><select value={element.treatment ?? 'frame'} onChange={(event) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, treatment: event.target.value === 'panel' ? 'panel' : 'frame' } : current)}><option value="frame">Frame</option><option value="panel">Ruled panel</option></select></label>
+      <label className="control-row"><span>Hint</span><input value={element.hint ?? ''} onChange={(event) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, hint: event.target.value } : current)} /></label>
+      <label className="control-row"><span>Types</span><CommitInput value={formatKinds(element)} onCommit={(value) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, cols: parseKinds(value, current.cols, current.headers.length) } : current)} /></label>
+      <label className="control-row"><span>Widths</span><CommitInput value={element.headers.map((_, index) => element.cols?.[index]?.w ?? 1).join(', ')} onCommit={(value) => updateElement(element.id, (current) => current.type === 'table' ? { ...current, cols: current.headers.map((_, index) => ({ ...current.cols?.[index], w: Number(value.split(',')[index]) || 1 })) } : current)} /></label>
     </>
   )
 }
@@ -138,6 +182,7 @@ function ElementControls({ element }: Readonly<{ element: SheetElement }>) {
 
 export function Inspector() {
   const state = useStore(editorStore)
+  const [shiftWithMargin, setShiftWithMargin] = useState(true)
   const { document } = state
   const selected = document.els.find((element) => element.id === state.selectedId)
   const selection = new Set(state.selectedIds)
@@ -175,6 +220,13 @@ export function Inspector() {
         <div className="preset-row">
           <button className={document.snap ? 'active' : ''} type="button" onClick={() => updateDocument((current) => ({ ...current, snap: !current.snap }))}>Snap</button>
           <button className={document.showGrid ? 'active' : ''} type="button" onClick={() => updateDocument((current) => ({ ...current, showGrid: !current.showGrid }))}>Grid</button>
+        </div>
+        <div className="margin-fields">
+          {([['t', 'Top'], ['r', 'Right'], ['b', 'Bottom'], ['l', 'Left']] as const).map(([side, label]) => (
+            <NumberField key={side} label={`${label} margin`} value={document.margins[side]} onChange={(value) => updateDocument((current) => setMargin(current, side satisfies MarginSide, value, shiftWithMargin))} />
+          ))}
+          <label className="control-row"><span>Move content with top and left</span><input type="checkbox" checked={shiftWithMargin} onChange={(event) => setShiftWithMargin(event.target.checked)} /></label>
+          <p className="help compact">Widen the binding side, then drag or resize content to fit. Content past the margin guide still prints.</p>
         </div>
         <p className="help">A5 · 24 × 36 grid · {document.grid.toFixed(2)} mm cells</p>
         <p className="help compact">Hold ⌥ Option while dragging or resizing to place freely, ignoring the grid.</p>

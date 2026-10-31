@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { blankDocument, chamferPath, characterDocument, documentTemplates, locationDocument, makeElement, npcDocument, partyDocument, round, roundPosition, sessionDocument } from './model'
+import { setMargin, blankDocument, chamferPath, characterDocument, locationDocument, makeElement, npcDocument, partyDocument, round, roundPosition, sessionDocument } from './model'
 
 describe('editor geometry', () => {
   test('snaps values to the document grid', () => {
@@ -43,11 +43,10 @@ describe('editor geometry', () => {
     expect(sessionDocument().els).toHaveLength(9)
     expect(partyDocument().els).toHaveLength(35)
     expect(characterDocument().els).toHaveLength(24)
-    expect(documentTemplates).toHaveLength(6)
     expect(npcDocument().els[0]).toMatchObject({ type: 'box', title: 'NPC', x: 10, y: 9, w: 128, h: 32 })
 
-    for (const template of documentTemplates) {
-      for (const element of template.create().els) {
+    for (const create of [locationDocument, npcDocument, sessionDocument, partyDocument, characterDocument]) {
+      for (const element of create().els) {
         expect((element.x - blankDocument.margins.l) / blankDocument.grid).toBeCloseTo(Math.round((element.x - blankDocument.margins.l) / blankDocument.grid))
         expect((element.y - blankDocument.margins.t) / blankDocument.grid).toBeCloseTo(Math.round((element.y - blankDocument.margins.t) / blankDocument.grid))
         expect(element.w / blankDocument.grid).toBeCloseTo(Math.round(element.w / blankDocument.grid))
@@ -55,5 +54,25 @@ describe('editor geometry', () => {
         expect(element.y + element.h).toBeLessThanOrEqual(210 - blankDocument.margins.b + .001)
       }
     }
+  })
+})
+
+describe('margins', () => {
+  const document = { ...blankDocument, els: [makeElement('box', 10, 9, 20, 20)] }
+
+  test('moving the left margin carries content when asked', () => {
+    const moved = setMargin(document, 'l', 16, true)
+
+    expect(moved.margins.l).toBe(16)
+    expect(moved.els[0]).toMatchObject({ x: 16, y: 9 })
+  })
+
+  test('right and bottom margins never move content, and shifting can be off', () => {
+    expect(setMargin(document, 'r', 20, true).els[0]).toMatchObject({ x: 10, y: 9 })
+    expect(setMargin(document, 'l', 16, false).els[0]).toMatchObject({ x: 10 })
+  })
+
+  test('margins cannot go negative', () => {
+    expect(setMargin(document, 't', -4, true).margins.t).toBe(0)
   })
 })

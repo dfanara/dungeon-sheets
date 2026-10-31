@@ -13,6 +13,10 @@ export const sheetParts = [
   { name: 'Captioned panel', detail: 'Ruled notes with a bottom caption', tool: 'box', columns: 6, rows: 8 },
   { name: 'Label strip', detail: 'A shaded heading for compact entries', tool: 'box', columns: 8, rows: 2 },
   { name: 'Section backplate', detail: 'A light backdrop for a group of components', tool: 'box', columns: 12, rows: 8 },
+  { name: 'Ruled panel', detail: 'Dense writing space with a shaded heading and hint', tool: 'box', columns: 12, rows: 6 },
+  { name: 'Point list', detail: 'Numbered entries, three writing lines each, tick when used', tool: 'table', columns: 24, rows: 14 },
+  { name: 'Checklist', detail: 'Tick boxes beside single-line entries', tool: 'table', columns: 12, rows: 6 },
+  { name: 'Circle-a-letter list', detail: 'Rows with letters to circle, such as a tag or hook type', tool: 'table', columns: 12, rows: 7 },
 ] as const
 
 export type SheetPart = typeof sheetParts[number]
@@ -49,11 +53,19 @@ export function placePart(document: SheetDocument, part: SheetPart): SheetElemen
 
   if (element.type === 'field' && part.name === 'Shield badge') return { ...element, variant: 'shield', label: 'AC' }
 
-  if (element.type === 'field' && part.name === 'Attached stat') return { ...element, variant: 'attached', label: 'PASSIVE PERCEPTION' }
+  if (element.type === 'field' && part.name === 'Attached stat') return { ...element, variant: 'attached', label: 'PERCEPTION' }
 
   if (element.type === 'box' && part.name === 'Captioned panel') return { ...element, caption: 'bottom', title: 'LANGUAGES', fill: 'lines' }
 
   if (element.type === 'box' && part.name === 'Label strip') return { ...element, treatment: 'strip', title: 'IDEAL', padding: 1 }
+
+  if (element.type === 'box' && part.name === 'Ruled panel') return { ...element, title: 'SECTION', hint: 'what goes here', fill: 'lines', gridSize: document.grid, treatment: 'panel', cut: 1, inset: .5, padding: 0 }
+
+  if (element.type === 'table' && part.name === 'Point list') return { ...element, title: 'POINTS', headers: ['#', 'POINT', 'USED'], rows: 4, lines: 3, treatment: 'panel', inset: .5, padding: 0, cols: [{ kind: 'number', w: .5 }, { kind: 'text', w: 9 }, { kind: 'check', w: 1 }] }
+
+  if (element.type === 'table' && part.name === 'Checklist') return { ...element, title: 'CHECKLIST', headers: ['', ''], rows: 5, treatment: 'panel', inset: .5, padding: 0, cols: [{ kind: 'check', w: .55 }, { kind: 'text', w: 7 }] }
+
+  if (element.type === 'table' && part.name === 'Circle-a-letter list') return { ...element, title: 'TYPE', headers: ['#', 'KIND', 'NOTE'], rows: 5, treatment: 'panel', inset: .5, padding: 0, cols: [{ kind: 'number', w: .5 }, { kind: 'letters', letters: 'ABCDE', w: 2 }, { kind: 'text', w: 5 }] }
 
   if (element.type === 'box' && part.name === 'Section backplate') return { ...element, treatment: 'backplate', title: '' }
 
