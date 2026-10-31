@@ -34,19 +34,19 @@ export function EditorCanvas() {
   const selected = document.els.find((element) => element.id === selectedId)
   const selection = new Set(selectedIds)
 
-  function coordinates(clientX: number, clientY: number) {
+  function coordinates(clientX: number, clientY: number, free = false) {
     const rect = svgRef.current?.getBoundingClientRect()
 
     return {
-      x: roundPosition((clientX - (rect?.left ?? 0)) / zoom, document, 'x'),
-      y: roundPosition((clientY - (rect?.top ?? 0)) / zoom, document, 'y'),
+      x: roundPosition((clientX - (rect?.left ?? 0)) / zoom, document, 'x', free),
+      y: roundPosition((clientY - (rect?.top ?? 0)) / zoom, document, 'y', free),
     }
   }
 
   function pointerDown(event: React.PointerEvent<SVGSVGElement>) {
     if (previewMode || event.button !== 0) return
 
-    const point = coordinates(event.clientX, event.clientY)
+    const point = coordinates(event.clientX, event.clientY, event.altKey)
 
     const target = event.target instanceof SVGElement
       ? event.target.closest('[data-element-id]')
@@ -96,7 +96,8 @@ export function EditorCanvas() {
 
     if (!drag) return
 
-    const point = coordinates(event.clientX, event.clientY)
+    const free = event.altKey
+    const point = coordinates(event.clientX, event.clientY, free)
 
     if (drag.mode === 'marquee') {
       setMarquee({ x: Math.min(point.x, drag.startX), y: Math.min(point.y, drag.startY), w: Math.abs(point.x - drag.startX), h: Math.abs(point.y - drag.startY) })
@@ -114,7 +115,7 @@ export function EditorCanvas() {
           const original = originals.get(element.id)
 
           return ids.has(element.id) && original
-            ? { ...element, x: original.x + roundPosition(drag.elementX + point.x - drag.startX, current, 'x') - drag.elementX, y: original.y + roundPosition(drag.elementY + point.y - drag.startY, current, 'y') - drag.elementY }
+            ? { ...element, x: original.x + roundPosition(drag.elementX + point.x - drag.startX, current, 'x', free) - drag.elementX, y: original.y + roundPosition(drag.elementY + point.y - drag.startY, current, 'y', free) - drag.elementY }
             : element
         }),
       }))
@@ -136,13 +137,13 @@ export function EditorCanvas() {
 
           const west = handle.includes('w')
           const north = handle.includes('n')
-          const width = Math.max(current.grid, round(originalW + (west ? -dx : handle.includes('e') ? dx : 0), current))
-          const height = element.type === 'rule' ? 0 : Math.max(current.grid, round(originalH + (north ? -dy : handle.includes('s') ? dy : 0), current))
+          const width = Math.max(free ? .5 : current.grid, round(originalW + (west ? -dx : handle.includes('e') ? dx : 0), current, free))
+          const height = element.type === 'rule' ? 0 : Math.max(free ? .5 : current.grid, round(originalH + (north ? -dy : handle.includes('s') ? dy : 0), current, free))
 
           return {
             ...element,
-            x: west ? roundPosition(drag.elementX + originalW - width, current, 'x') : element.x,
-            y: north ? roundPosition(drag.elementY + originalH - height, current, 'y') : element.y,
+            x: west ? roundPosition(drag.elementX + originalW - width, current, 'x', free) : element.x,
+            y: north ? roundPosition(drag.elementY + originalH - height, current, 'y', free) : element.y,
             w: width,
             h: height,
           }
@@ -156,8 +157,8 @@ export function EditorCanvas() {
 
     const x = Math.min(point.x, drag.startX)
     const y = Math.min(point.y, drag.startY)
-    const w = Math.max(document.grid, Math.abs(point.x - drag.startX))
-    const h = tool === 'rule' ? 0 : Math.max(document.grid, Math.abs(point.y - drag.startY))
+    const w = Math.max(free ? .5 : document.grid, Math.abs(point.x - drag.startX))
+    const h = tool === 'rule' ? 0 : Math.max(free ? .5 : document.grid, Math.abs(point.y - drag.startY))
 
     setPreview(makeElement(tool, x, y, w, h))
   }
@@ -175,7 +176,7 @@ export function EditorCanvas() {
     }
 
     if (drag?.mode === 'draw') {
-      const point = coordinates(event.clientX, event.clientY)
+      const point = coordinates(event.clientX, event.clientY, event.altKey)
       const moved = Math.abs(point.x - drag.startX) + Math.abs(point.y - drag.startY) > .1
       let element = preview
 

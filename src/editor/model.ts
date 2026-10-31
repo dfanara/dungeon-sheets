@@ -39,6 +39,7 @@ export interface BoxElement extends Bounds {
 export interface FieldElement extends Bounds {
   type: 'field'
   label: string
+  labels?: string[]
   variant?: 'line' | 'box' | 'circle' | 'shield' | 'banner' | 'attached'
 }
 
@@ -90,18 +91,18 @@ export const blankDocument: SheetDocument = {
   els: [],
 }
 
-export function round(value: number, document: SheetDocument) {
-  if (document.snap) return Math.round(value / document.grid) * document.grid
+export function round(value: number, document: SheetDocument, free = false) {
+  if (document.snap && !free) return Math.round(value / document.grid) * document.grid
 
   return Math.round(value * 100) / 100
 }
 
-export function roundPosition(value: number, document: SheetDocument, axis: 'x' | 'y') {
-  if (!document.snap) return round(value, document)
+export function roundPosition(value: number, document: SheetDocument, axis: 'x' | 'y', free = false) {
+  if (!document.snap || free) return round(value, document, free)
 
   const origin = axis === 'x' ? document.margins.l : document.margins.t
 
-  return origin + round(value - origin, document)
+  return origin + round(value - origin, document, free)
 }
 
 export function makeId() {

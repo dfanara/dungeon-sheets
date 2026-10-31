@@ -10,6 +10,11 @@ describe('editor geometry', () => {
     expect(roundPosition(17.1, blankDocument, 'y')).toBeCloseTo(59 / 3)
   })
 
+  test('the free flag bypasses grid snapping even when snap is on', () => {
+    expect(round(5.93, blankDocument, true)).toBe(5.93)
+    expect(roundPosition(17.13, blankDocument, 'x', true)).toBe(17.13)
+  })
+
   test('clamps chamfers to small bounds', () => {
     expect(chamferPath(0, 0, 2, 4, 8)).toStartWith('M 1,0')
   })

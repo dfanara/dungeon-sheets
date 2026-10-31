@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { makeElement } from './model'
-import { contentBounds, frameBounds, insetBounds, labelLength } from './spacing'
+import { makeElement, type FieldElement } from './model'
+import { contentBounds, frameBounds, insetBounds, labelLength, splitCells } from './spacing'
 import { SheetElementView } from './sheet-element'
 import { createElement } from 'react'
 
@@ -39,4 +39,28 @@ test('long labels are bounded and spacing is embedded in printable SVG', () => {
   expect(markup).toContain('lengthAdjust="spacingAndGlyphs"')
   expect(markup).toContain('x="14" y="13" width="22" height="12"')
   expect(markup).not.toContain('data-chrome')
+})
+
+test('splitCells divides a band into even, gap-separated slots', () => {
+  expect(splitCells({ x: 10, w: 20 }, 1)).toEqual([{ x: 10, w: 20 }])
+
+  const cells = splitCells({ x: 10, w: 30 }, 3)
+
+  expect(cells).toEqual([{ x: 10, w: 8 }, { x: 20, w: 8 }, { x: 30, w: 10 }])
+})
+
+test('a field with no labels array renders identically to an explicit single-item labels array; multiple labels each get their own underline', () => {
+  // SAFETY: makeElement('field', ...) always returns a FieldElement; the union return type is only for the generic call signature.
+  const single = makeElement('field', 10, 9, 40, 5.333) as FieldElement
+
+  const withoutLabels = renderToStaticMarkup(createElement('svg', null, createElement(SheetElementView, { element: single })))
+  const withOneLabel = renderToStaticMarkup(createElement('svg', null, createElement(SheetElementView, { element: { ...single, labels: [single.label] } })))
+
+  expect(withoutLabels).toBe(withOneLabel)
+
+  const markup = renderToStaticMarkup(createElement('svg', null, createElement(SheetElementView, { element: { ...single, labels: ['NAME', 'ALIAS'] } })))
+
+  expect(markup.match(/<line/g)).toHaveLength(2)
+  expect(markup).toContain('>NAME<')
+  expect(markup).toContain('>ALIAS<')
 })

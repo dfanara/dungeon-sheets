@@ -1,6 +1,6 @@
 import type { BoxElement, FieldElement, SheetElement, TableElement, TrackerElement } from './model'
 import { chamferPath } from './model'
-import { contentBounds, frameBounds, labelLength } from './spacing'
+import { contentBounds, frameBounds, labelLength, splitCells } from './spacing'
 import { FantasyField } from './fantasy-element'
 
 function FieldView({ element }: Readonly<{ element: FieldElement }>) {
@@ -33,10 +33,16 @@ function FieldView({ element }: Readonly<{ element: FieldElement }>) {
     )
   }
 
+  const labels = element.labels?.length ? element.labels : [element.label]
+
   return (
     <g data-element-id={element.id}>
-      <line x1={content.x} y1={content.y + content.h} x2={content.x + content.w} y2={content.y + content.h} stroke="#222" strokeWidth=".25" />
-      <text className="field-label" x={content.x} y={labelY - .6} textLength={labelLength(element.label, 2.3, content.w)} lengthAdjust="spacingAndGlyphs">{element.label}</text>
+      {splitCells(content, labels.length).map((cell, index) => (
+        <g key={`${cell.x}-${labels[index]}`}>
+          <line x1={cell.x} y1={content.y + content.h} x2={cell.x + cell.w} y2={content.y + content.h} stroke="#222" strokeWidth=".25" />
+          <text className="field-label" x={cell.x} y={labelY - .6} textLength={labelLength(labels[index]!, 2.3, cell.w)} lengthAdjust="spacingAndGlyphs">{labels[index]}</text>
+        </g>
+      ))}
     </g>
   )
 }

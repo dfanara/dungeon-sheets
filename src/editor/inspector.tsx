@@ -46,10 +46,18 @@ function BoxControls({ element }: Readonly<{ element: BoxElement }>) {
 }
 
 function FieldControls({ element }: Readonly<{ element: FieldElement }>) {
+  const variant = element.variant ?? 'line'
+
   return (
     <>
-      <label className="control-row"><span>Label</span><input value={element.label} onChange={(event) => updateElement(element.id, (current) => current.type === 'field' ? { ...current, label: event.target.value } : current)} /></label>
-      <label className="control-row"><span>Style</span><select value={element.variant ?? 'line'} onChange={(event) => updateElement(element.id, (current) => current.type === 'field' ? { ...current, variant: parseFieldVariant(event.target.value) } : current)}><option value="line">Underline</option><option value="box">Value box</option><option value="circle">Circle</option><option value="shield">Shield</option><option value="banner">Banner</option><option value="attached">Attached stat</option></select></label>
+      {variant === 'line'
+        ? <label className="control-row"><span>Labels</span><input value={(element.labels ?? [element.label]).join(',')} onChange={(event) => {
+            const labels = event.target.value.split(',')
+
+            updateElement(element.id, (current) => current.type === 'field' ? { ...current, label: labels[0] ?? '', labels } : current)
+          }} /></label>
+        : <label className="control-row"><span>Label</span><input value={element.label} onChange={(event) => updateElement(element.id, (current) => current.type === 'field' ? { ...current, label: event.target.value } : current)} /></label>}
+      <label className="control-row"><span>Style</span><select value={variant} onChange={(event) => updateElement(element.id, (current) => current.type === 'field' ? { ...current, variant: parseFieldVariant(event.target.value) } : current)}><option value="line">Underline</option><option value="box">Value box</option><option value="circle">Circle</option><option value="shield">Shield</option><option value="banner">Banner</option><option value="attached">Attached stat</option></select></label>
     </>
   )
 }
@@ -169,6 +177,7 @@ export function Inspector() {
           <button className={document.showGrid ? 'active' : ''} type="button" onClick={() => updateDocument((current) => ({ ...current, showGrid: !current.showGrid }))}>Grid</button>
         </div>
         <p className="help">A5 · 24 × 36 grid · {document.grid.toFixed(2)} mm cells</p>
+        <p className="help compact">Hold ⌥ Option while dragging or resizing to place freely, ignoring the grid.</p>
       </details>
     </aside>
   )

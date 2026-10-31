@@ -23,3 +23,15 @@ export function contentBounds<T extends SheetElement>(element: T): T {
 export function labelLength(text: string, size: number, width: number) {
   return text.length * size * .65 > width ? Math.max(.1, width) : undefined
 }
+
+export const labelGap = 2
+
+// Divides a content band into evenly sized cells for a multi-label field, mirroring how table headers split into columns.
+export function splitCells(content: { x: number; w: number }, count: number) {
+  const cellWidth = content.w / count
+
+  return Array.from({ length: count }, (_, index) => ({
+    x: content.x + index * cellWidth,
+    w: Math.max(0, cellWidth - (index < count - 1 ? labelGap : 0)),
+  }))
+}
